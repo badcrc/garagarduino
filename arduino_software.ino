@@ -1,5 +1,8 @@
 
 
+
+
+
 /*
   Based on SD Data logger
 
@@ -29,6 +32,11 @@ RTC_DS1307 RTC;
 
 
 
+//for OneWire sensor (ds18b20)
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+
 // On the Ethernet Shield, CS is pin 4. Note that even if it's not
 // used as the CS pin, the hardware CS pin (10 on most Arduino boards,
 // 53 on the Mega) must be left as an output or the SD library
@@ -38,6 +46,12 @@ const int chipSelect = 10;
 
 ///Temperature monitors
 const int tempPin = A2;
+
+#define ONE_WIRE_BUS 9
+
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 
 
 //relays
@@ -113,6 +127,12 @@ void setup()
   LCD
   */
   lcd.begin(16, 2);
+  
+  /*
+  OneWire
+  */
+  
+  sensors.begin();
 
 
 }
@@ -129,11 +149,11 @@ void loop() {
 
   String dataString = date_now + " " + time_now + ",";
 
-
-
-
   float val_temp = analogRead(tempPin);
+  sensors.requestTemperatures();
   
+  float wort_temp = sensors.getTempCByIndex(0);
+    
   float current_temp = (1.1 * val_temp * 100.0) / 1024;
   
   
@@ -160,7 +180,9 @@ void loop() {
       lcd.print(String(MinAllowedTemp) + "<---->" + String(MaxAllowedTemp));
       cnt = 0;
   } else if(cnt==0) {
-     lcd.print("C:" + String(current_temp) + dir + " T:" + TargetTemp);
+     //lcd.print("A:" + String(current_temp) + dir + " W:" + String(wort_temp));
+     
+     lcd.print("A:" + String(current_temp) + "  W:" + String(wort_temp));
      cnt = 1;
   }
 
@@ -234,7 +256,7 @@ void loop() {
   }  
 
 
-  dataString += String(current_temp) + ",";
+  dataString += String(current_temp) + "," + String(wort_temp) + ",";
 
   dataString += String(Hot_on) + "," + String(Cold_on);
 
@@ -257,13 +279,5 @@ void loop() {
     Serial.println("error opening datalog.csv");
   }
 
-  delay(4500);
+  delay(1500);
 }
-
-
-
-
-
-
-
-

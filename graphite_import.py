@@ -21,7 +21,8 @@ def send_to_carbon(metric_path,value,timestamp):
 
 def main():
 	
-	temp_metric="stats.gauges.Homebrew.temperature"
+	air_temp_metric="stats.gauges.Homebrew.air_temperature"
+	wort_temp_metric="stats.gauges.Homebrew.wort_temperature"
 	hot_metric="stats.gauges.Homebrew.hot"
 	cold_metric="stats.gauges.Homebrew.cold"
 	
@@ -31,15 +32,17 @@ def main():
 	    
             for row in file_data:
                 date = time.mktime(datetime.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S").timetuple())
-                temperature=row[1]
-                hot = row[2]
-                cold = row[3]
+                air_temperature=row[1]
+                air_temperature=row[2]
+                hot = row[3]
+                cold = row[4]
                 
                 #we don't want tests sent to graphite
-                if float(temperature) > 50.00: 
+                if float(air_temperature) > 50.00: 
                     continue
                 
-                send_to_carbon(temp_metric,temperature,date)
+                send_to_carbon(air_temp_metric,air_temperature,date)
+                send_to_carbon(wort_temp_metric,wort_temperature,date)
                 send_to_carbon(hot_metric,hot,date)
                 send_to_carbon(cold_metric,cold,date)
 
