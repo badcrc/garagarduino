@@ -87,10 +87,8 @@
 		
 		
 		
-		<footer class="footer">
-		      <div class="container">
-		        <p class="text-muted">Done with Garagarduino 2.0</p>
-		      </div>
-		    </footer>
+		 <?php
+            require_once("footer.php");
+        ?>
 	</body>
 </html>

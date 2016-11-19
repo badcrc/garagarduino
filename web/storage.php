@@ -52,7 +52,12 @@
 							
 							<tr>
 								<td><?=$filename[1]?></td>
-								<td><a class="btn btn-default" href="/log.php?day=<?=$filename[1]?>" role="button">Ver datos</a></td>
+								<td>
+								    <div class="btn-group">
+								        <a class="btn btn-default" href="/log.php?day=<?=$filename[1]?>" role="button">Ver datos</a>
+								        <a class="btn btn-default" href="/graph.php?day=<?=$filename[1]?>" role="button">Ver gráficas</a>
+								    </div>
+								</td>
 							</tr>
 							
 							<?php
@@ -68,10 +73,8 @@
 		
 		
 		
-		<footer class="footer">
-		      <div class="container">
-		        <p class="text-muted">Done with Garagarduino 2.0</p>
-		      </div>
-		    </footer>
+        <?php
+            require_once("footer.php");
+        ?>
 	</body>
 </html>
