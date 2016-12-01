@@ -1,3 +1,4 @@
+
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
@@ -8,6 +9,8 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <PubSubClient.h>
+#include <Keypad.h>
+
 
 
 // Enter a MAC address for your controller below.
@@ -17,11 +20,13 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress dnServer(8, 8, 8, 8);
 // the router's gateway address:
 IPAddress gateway(192, 168, 1, 1);
+
 // the subnet:
 IPAddress subnet(255, 255, 255, 0);
 
 //the IP address is dependent on your network
 IPAddress ip(192, 168, 1, 55);
+
 
 //mqtt server address
 IPAddress mqtt_server(aaa,bbb,ccc,ddd);
@@ -37,12 +42,14 @@ PubSubClient client(ethClient);
 
 
 ///Temperature monitors
-const int tempPin = A2;
-
 #define ONE_WIRE_BUS 9
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
+
+//Probes
+DeviceAddress ProbeAir = { 0x28, 0xCC, 0xEB, 0x03, 0x00, 0x00, 0x80, 0x52 }; 
+DeviceAddress ProbeWort = { 0x28, 0xFF, 0x5C, 0x1E, 0x80, 0x16, 0x05, 0xCA }; 
 
 //relays
 const int cold_relay = 6;
@@ -63,6 +70,7 @@ int readings = 0;
 unsigned long epoch;
 
 
+
 void setup() {
   
     Serial.begin(9600);
@@ -74,7 +82,7 @@ void setup() {
     
     // activate LCD module
     Serial.println("LCD init...");
-    lcd.begin (16,2); // for 16 x 2 LCD module
+    lcd.begin (20,4); // for 20 x 4 LCD module
     lcd.setBacklightPin(3,POSITIVE);
     lcd.setBacklight(HIGH);
     
@@ -89,7 +97,7 @@ void setup() {
     //Ethernet.begin(mac);
     
     Ethernet.begin(mac, ip, dnServer, gateway, subnet);
-    //print out the IP address
+  //print out the IP address
     Serial.print("IP = ");
     Serial.println(Ethernet.localIP());
     delay(900);
@@ -103,8 +111,8 @@ void setup() {
     Serial.println("Time init...");
     // DS3231 seconds, minutes, hours, day, date, month, year
     //setDS3231time(30,48,18,3,24,5,16);
-    // Udp.begin(8888);
-    // epoch = updateNTPdate();
+   // Udp.begin(8888);
+   // epoch = updateNTPdate();
     delay(900);
 
     lcd.clear();
@@ -138,6 +146,8 @@ void setup() {
 
     Serial.println("Sensors init...");
     sensors.begin();
+    sensors.setResolution(ProbeAir, 10);
+    sensors.setResolution(ProbeWort, 10);
     analogReference(INTERNAL1V1);
     delay(900);
     
@@ -148,7 +158,6 @@ void setup() {
     client.setCallback(mqtt_callback);
     delay(900);
 
-    
     lcd.clear();
     lcd.home(); 
     lcd.print("Init done!!!"); 
@@ -159,16 +168,19 @@ void setup() {
 }
 
 void loop() {
+   
+  
+  
 
-  float val_temp = analogRead(tempPin);
+
   sensors.requestTemperatures();
-
-  float wort_temperature = sensors.getTempCByIndex(0);
+  
+  float wort_temperature = sensors.getTempC(ProbeWort);
+  float air_temperature = sensors.getTempC(ProbeAir);
   
 
-  float current_temperature = (1.1 * val_temp * 100.0) / 1024;
-  
-  air_temp_sum += current_temperature;
+  float current_temperature = (air_temperature + wort_temperature) / 2;
+  air_temp_sum += air_temperature;
   wort_temp_sum += wort_temperature;
   readings +=1;
   
@@ -218,30 +230,30 @@ void loop() {
   }
   
   lcd.clear();
-  lcd.home(); 
-  lcd.print("Brewing  H:" + String(Hot) + " C:" + String(Cold)); 
-  lcd.setCursor (0,1);
-  lcd.print("W:" + String(wort_temperature) + "  A:" + String(current_temperature)); 
+    lcd.home(); 
+    lcd.print("Brewing  H:" + String(Hot) + " C:" + String(Cold)); 
+    lcd.setCursor (0,1);
+    lcd.print("W:" + String(wort_temperature) + "  A:" + String(air_temperature)); 
+    lcd.setCursor (0,2);
+    lcd.print("M:" + String(current_temperature)); 
+
 
   //Serial.println("Wort:" + String(wort_temperature) + "  Air:" + String(current_temperature));
   //Serial.println("Hot:" + String(Hot) + " Cold:" + String(Cold)); 
 
 
   File logFile = SD.open("dev.csv", FILE_WRITE);
-  logFile.println(displayTime() + "-" + String(current_temperature) + "|" + String(wort_temperature) + "|" + String(Hot) + "|" + String(Cold));
+  logFile.println(displayTime() + "-" + String(current_temperature) + "|" + String(air_temperature) + "|" + String(Hot) + "|" + String(Cold));
   logFile.close();
-
-  // if ten seconds have passed since your last connection,
-  // then connect again and send data:
 
   
   char message_buff[255];
   //String pubString = "{\"fermentation\": {\"air_temp\": \"" + String(current_temperature) + "\",\"wort_temp\": \"" + String(wort_temperature) + "\",\"hot_relay\": \"" + String(Hot) + "\",\"cold_relay\": \"" + String(Cold) + "\"}}";
-  String pubString = String(current_temperature) + "," + String(wort_temperature) + "," + String(Hot) + "," + String(Cold);
+  String pubString = String(current_temperature) + "," + String(air_temperature) + "," + String(Hot) + "," + String(Cold);
   pubString.toCharArray(message_buff, pubString.length()+1);
   
   if (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
+    Serial.println("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect("garagarduino","garagarduino","changeme")) {
       Serial.println("connected");
@@ -255,7 +267,7 @@ void loop() {
   }
   client.loop();
 
-  // wait N seconds before asking for the time again
+  // wait ten seconds before asking for the time again
   delay(10000);
   
 }
@@ -266,7 +278,9 @@ void loop() {
  */
 
 
-void setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year) {
+void setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte
+dayOfMonth, byte month, byte year)
+{
   // sets time and date data to DS3231
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
   Wire.write(0); // set next input to start at the seconds register
@@ -286,7 +300,8 @@ byte *hour,
 byte *dayOfWeek,
 byte *dayOfMonth,
 byte *month,
-byte *year) {
+byte *year)
+{
   Wire.beginTransmission(DS3231_I2C_ADDRESS);
   Wire.write(0); // set DS3231 register pointer to 00h
   Wire.endTransmission();
@@ -300,20 +315,24 @@ byte *year) {
   *month = bcdToDec(Wire.read());
   *year = bcdToDec(Wire.read());
 }
-String displayTime() {
+String displayTime()
+{
   byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
   // retrieve data from DS3231
   readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month,&year);
   // send it to the serial monitor
  
   return (String(year) + "-" + String(month) + "-" + String(dayOfMonth) + " " + String(hour) + ":" + String(minute) + ":" + String(second));
+
 }
 
-byte decToBcd(byte val) {
+byte decToBcd(byte val)
+{
   return( (val/10*16) + (val%10) );
 }
 // Convert binary coded decimal to normal decimal numbers
-byte bcdToDec(byte val) {
+byte bcdToDec(byte val)
+{
   return( (val/16*10) + (val%16) );
 }
 
@@ -330,3 +349,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 }
+
+
+
+
+

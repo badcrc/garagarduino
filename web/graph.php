@@ -10,7 +10,7 @@ if(isset($_GET["day"])) {
 
 $batch="dev";
 
-?>;
+?>
 
 <html>
 	<head>
