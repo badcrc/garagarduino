@@ -178,6 +178,32 @@ void loop() {
   float wort_temperature = sensors.getTempC(ProbeWort);
   float air_temperature = sensors.getTempC(ProbeAir);
   
+  int multiplier = 0;
+
+  //no sensor attached!
+  if (wort_temperature == -127.00) {
+      //Serial.println("No wort sensor attached!");
+      wort_temperature = 0.0;
+      multiplier += 1;
+  }
+
+  if (air_temperature == -127.00) {
+      //Serial.println("No air sensor attached!");
+      air_temperature = 0.0;
+      multiplier += 1;
+
+  }
+  float current_temperature  = 0.0;
+  
+  switch (multiplier) {
+    case 0:
+        current_temperature = (air_temperature + wort_temperature) / 2;
+        break;
+
+   default:
+        current_temperature = (air_temperature + wort_temperature);
+        break;
+  }
 
   float current_temperature = (air_temperature + wort_temperature) / 2;
   air_temp_sum += air_temperature;
