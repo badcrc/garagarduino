@@ -306,17 +306,6 @@ void loop() {
     digitalWrite(cold_relay, HIGH);
   }
   
-  //boubble counter
-  int c = 0;
-  boubbles = 0;
-
-  for (c=0;c<5000;c+=1) {
-    int ir = analogRead(ir_pin);
-    if (ir < 900) {
-        boubbles+=1;
-        delay(25);
-    } 
-  }
 
   lcd.clear();
   lcd.home(); 
