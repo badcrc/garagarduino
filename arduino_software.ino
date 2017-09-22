@@ -19,13 +19,13 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
 IPAddress dnServer(8, 8, 8, 8);
 // the router's gateway address:
-IPAddress gateway(192, 168, 1, 1);
+IPAddress gateway(10, 0, 1, 1);
 
 // the subnet:
 IPAddress subnet(255, 255, 255, 0);
 
 //the IP address is dependent on your network
-IPAddress ip(192, 168, 1, 55);
+IPAddress ip(10, 0, 1, 55);
 
 
 //mqtt server address
@@ -68,6 +68,54 @@ float air_temp_sum = 0.0;
 int readings = 0;
 
 unsigned long epoch;
+
+//for the bubble counter, I'm aware of the typos :D
+int boubbles = 0;
+
+// Connect the opto signal pin to the first INT pin (digital pin 2 on an Arduino Uno)
+#define resolution 800000 //only capture pulse that are greater than this to avoid noise
+#define sample 4 // sample size of pulses for average starts at 0
+
+volatile unsigned long pulseThen;
+volatile unsigned long pulseNow;
+volatile unsigned long numPulses;
+volatile unsigned long keeppulse[sample];
+volatile int count=0;
+
+void isr() {
+    boubbles +=1;
+ /* 
+  
+  //for the future
+ unsigned long now = micros();
+ float pulselength;
+ pulseNow = now;
+ int averagepulse;
+ int totalsample = 0;
+
+
+ if ((pulseNow - pulseThen) > resolution)
+ {
+  //boubbles +=1;
+   
+   pulselength = (float)(pulseNow - pulseThen) /1000000;
+   if( count < sample ) {
+    keeppulse[count] = pulselength;
+    count++;
+   }
+   else {
+    count = 0;
+    for( int x=0; (x<sample); x++ ) {
+      totalsample += (int)keeppulse[x];
+     }
+    averagepulse = totalsample/sample;
+    }
+
+   pulseThen = pulseNow;
+   ++numPulses;
+ }
+ */
+}
 
 
 
@@ -160,6 +208,14 @@ void setup() {
 
     lcd.clear();
     lcd.home(); 
+    lcd.print("Boubles Init..."); 
+    pinMode(19, INPUT); //probe output on pin 18
+    attachInterrupt(digitalPinToInterrupt(19), isr, RISING);
+    numPulses = 0;                      // prime the system to start a new reading
+    delay(900);
+
+    lcd.clear();
+    lcd.home(); 
     lcd.print("Init done!!!"); 
     lcd.setCursor (0,1);
     lcd.print("Let's brew!!!"); 
@@ -168,11 +224,6 @@ void setup() {
 }
 
 void loop() {
-   
-  
-  
-
-
   sensors.requestTemperatures();
   
   float wort_temperature = sensors.getTempC(ProbeWort);
@@ -200,7 +251,7 @@ void loop() {
         current_temperature = (air_temperature + wort_temperature) / 2;
         break;
 
-   default:
+    default:
         current_temperature = (air_temperature + wort_temperature);
         break;
   }
@@ -255,13 +306,27 @@ void loop() {
     digitalWrite(cold_relay, HIGH);
   }
   
+  //boubble counter
+  int c = 0;
+  boubbles = 0;
+
+  for (c=0;c<5000;c+=1) {
+    int ir = analogRead(ir_pin);
+    if (ir < 900) {
+        boubbles+=1;
+        delay(25);
+    } 
+  }
+
   lcd.clear();
-    lcd.home(); 
-    lcd.print("Brewing  H:" + String(Hot) + " C:" + String(Cold)); 
-    lcd.setCursor (0,1);
-    lcd.print("W:" + String(wort_temperature) + "  A:" + String(air_temperature)); 
-    lcd.setCursor (0,2);
-    lcd.print("M:" + String(current_temperature)); 
+  lcd.home(); 
+  lcd.print("Brewing  H:" + String(Hot) + " C:" + String(Cold)); 
+  lcd.setCursor (0,1);
+  lcd.print("W:" + String(wort_temperature) + "  A:" + String(air_temperature)); 
+  lcd.setCursor (0,2);
+  lcd.print("M:" + String(current_temperature) + " " + String(MinAllowedTemperature)+ "-" + String(MaxAllowedTemperature) ); 
+  lcd.setCursor (0,3);
+  lcd.print("BOUBLES: " + String(boubbles)); 
 
 
   //Serial.println("Wort:" + String(wort_temperature) + "  Air:" + String(current_temperature));
@@ -269,13 +334,13 @@ void loop() {
 
 
   File logFile = SD.open("dev.csv", FILE_WRITE);
-  logFile.println(displayTime() + "-" + String(current_temperature) + "|" + String(air_temperature) + "|" + String(Hot) + "|" + String(Cold));
+  logFile.println(displayTime() + "-" + String(current_temperature) + "|" + String(air_temperature) + "|" + String(Hot) + "|" + String(Cold) + "|" + String(boubbles));
   logFile.close();
 
   
   char message_buff[255];
   //String pubString = "{\"fermentation\": {\"air_temp\": \"" + String(current_temperature) + "\",\"wort_temp\": \"" + String(wort_temperature) + "\",\"hot_relay\": \"" + String(Hot) + "\",\"cold_relay\": \"" + String(Cold) + "\"}}";
-  String pubString = String(current_temperature) + "," + String(air_temperature) + "," + String(Hot) + "," + String(Cold);
+  String pubString = String(wort_temperature) + "," + String(air_temperature) + "," + String(Hot) + "," + String(Cold) + "," + String(boubbles);
   pubString.toCharArray(message_buff, pubString.length()+1);
   
   if (!client.connected()) {
@@ -292,6 +357,7 @@ void loop() {
     client.publish("garagarduino",message_buff);
   }
   client.loop();
+  boubbles = 0;
 
   // wait ten seconds before asking for the time again
   delay(10000);

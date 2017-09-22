@@ -6,7 +6,7 @@ import time
 #send data to statsd
 
 def send_data_to_statsd(mqtt_data):
-    metrics=['air_temperature','wort_temperature','hot','cold']
+    metrics=['air_temperature','wort_temperature','hot','cold','bubbles']
     statsd.Connection.set_defaults(host='statsd.domain.tld', port=8125)
     
     c=0
