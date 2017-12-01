@@ -56,9 +56,14 @@ const int cold_relay = 6;
 const int hot_relay = 7;
 
 //max-min and optimal temps
-const float MaxAllowedTemperature = 28.00;
-const float MinAllowedTemperature = 18.00;
-const float target_temprerature = 25.00;
+float MaxAllowedTemperature = 28.00;
+float MinAllowedTemperature = 18.00;
+float target_temprerature = 25.00;
+
+const float Initial_MaxAllowedTemperature = 22.00;
+const float Initial_MinAllowedTemperature = 16.00;
+const float initial_target_temprerature = 19.00;
+
 
 boolean Cold = 0;
 boolean Hot = 0;
@@ -318,8 +323,11 @@ void loop() {
   lcd.print("BOUBLES: " + String(boubbles)); 
 
 
-  //Serial.println("Wort:" + String(wort_temperature) + "  Air:" + String(current_temperature));
-  //Serial.println("Hot:" + String(Hot) + " Cold:" + String(Cold)); 
+  Serial.println("Wort:" + String(wort_temperature) + "  Air:" + String(air_temperature));
+  Serial.println("Current:" + String(current_temperature) + " Target:" + String(target_temprerature));
+  Serial.println("Hot:" + String(Hot) + " Cold:" + String(Cold)); 
+  Serial.println("Boubles:" + String(boubbles)); 
+
 
 
   File logFile = SD.open("dev.csv", FILE_WRITE);
@@ -340,7 +348,7 @@ void loop() {
       // Once connected, publish an announcement...      
       client.publish("garagarduino",message_buff);
       // ... and resubscribe
-      //client.subscribe("inTopic");
+      client.subscribe("brewsched");
     }
   } else {
     client.publish("garagarduino",message_buff);
@@ -429,6 +437,31 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
+
+
+  float new_min = getValue(new_data,'|',0).toFloat();
+  float new_max = getValue(new_data,'|',1).toFloat();
+  float new_target = getValue(new_data,'|',2).toFloat();
+
+  if (new_min != 0.0) {
+    MinAllowedTemperature = new_min;
+  } else {
+    MinAllowedTemperature = Initial_MinAllowedTemperature;
+  }
+
+
+  if (new_max != 0.0) {
+    MaxAllowedTemperature = new_max;
+  } else {
+    MaxAllowedTemperature = Initial_MaxAllowedTemperature;
+  }
+
+  
+  if (new_target != 0.0) {
+    target_temprerature = new_target;
+  } else {
+    target_temprerature = initial_target_temprerature;
+  }
 }
 
 
